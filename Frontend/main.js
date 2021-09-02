@@ -1,5 +1,7 @@
 Moralis.initialize("zhtFOvVlO90ncDMdyBW4MXhPwULckUeLQ11BmmKA");
 Moralis.serverURL = 'https://2cvjfiew4kxo.usemoralis.com:2053/server'
+const TOKEN_CONTRACT_ADDRESS = "0x8A513406ddDAD4Dd05e5561D5dD3adEf14Fc62e5";
+
 
 init = async () => {
     hideElement(userInfo);
