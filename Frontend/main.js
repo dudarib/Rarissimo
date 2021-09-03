@@ -4,11 +4,13 @@ const TOKEN_CONTRACT_ADDRESS = "0x8A513406ddDAD4Dd05e5561D5dD3adEf14Fc62e5";
 
 
 init = async () => {
+    hideElement(userItemsSection);
     hideElement(userInfo);
     hideElement(createItemForm);
     window.web3 = await Moralis.Web3.enable();
     window.tokenContract = new web3.eth.Contract(tokenContractAbi, TOKEN_CONTRACT_ADDRESS);
     initUser();
+    loadUserItems();
 }
 
 /**Takes care of displaying the correct button */
@@ -17,11 +19,15 @@ initUser = async () => {
         hideElement(userConnectButton);
         showElement(userProfileButton);
         showElement(openCreateItemButton);
+        showElement(openUserItemsButton);
+
 
     }else {
         showElement(userConnectButton);
         hideElement(userProfileButton);
         hideElement(openCreateItemButton);
+        hideElement(openUserItemsButton);
+
 
     }
 }
@@ -131,6 +137,21 @@ mintNft = async (metadataUrl) => {
     return receipt.events.Transfer.returnValues.tokenId;
 }
 
+openUserItems = async () => {
+    user = await Moralis.User.current();
+    if (user){
+       
+            showElement(userItemsSection);
+    }else{
+        login();
+    }
+}
+
+loadUserItems = async () => {
+    const ownedItems = await Moralis.Cloud.run("getUserItems");
+    console.log(ownedItems);
+}
+
 hideElement = (element) => element.style.display = "none";
 showElement = (element) => element.style.display = "block";
 
@@ -166,5 +187,11 @@ const createItemFile = document.getElementById("fileCreateItemFile");
 document.getElementById("btnCloseCreateItem").onclick = () => hideElement(createItemForm);
 document.getElementById("btnCreateItem").onclick = createItem;
 
+// User items
+const userItemsSection = document.getElementById("userItems");
+const userItems = document.getElementById("userItemsList");
+document.getElementById("btnCloseUserItems").onclick = () => hideElement(userItemsSection);
+const openUserItemsButton = document.getElementById("btnMyItems");
+openUserItemsButton.onclick = openUserItems;
 
 init();
