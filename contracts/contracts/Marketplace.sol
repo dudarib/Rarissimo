@@ -13,7 +13,7 @@ contract RarissimoMarketContract {
     }
 
     AuctionItem[] public itemsForSale;
-    mapping (address -> mapping (uint256 -> bool)) activeItems; // so we dont have to loop throw the AuctionItem array to check if is for sale or not
+    mapping (address => mapping (uint256 => bool)) activeItems; // so we dont have to loop throw the AuctionItem array to check if is for sale or not
 
     event itemAdded(uint256 id, uint256 tokenId, address tokenAddress, uint256 askingPrice);
     event itemSold(uint256 id, address buyer, uint256 askingPrice);
@@ -44,14 +44,15 @@ contract RarissimoMarketContract {
         require(activeItems[tokenAddress][tokenId] == false, "Item is already up for sale!");
         uint256 newItemId = itemsForSale.length;
         itemsForSale.push(AuctionItem(newItemId, tokenAddress, tokenId, payable(msg.sender), askingPrice, false));
-        activeItems[tokenAddress][tokenId] == true;
+        activeItems[tokenAddress][tokenId] = true;
 
-        assert(itemsForSale[newItemId].id = newItemId);
+
+        assert(itemsForSale[newItemId].id == newItemId);
         emit itemAdded(newItemId, tokenId, tokenAddress, askingPrice);
         return newItemId;
     }
 
-    function buyItem(uint256 id) payable external ItemExists(id) isForSale(id) HasTransferApproval(itemsForSale[id].tokenAddress, itemsForSale[id].tokenId) {
+    function buyItem(uint256 id) payable external ItemExists(id) IsForSale(id) HasTransferApproval(itemsForSale[id].tokenAddress, itemsForSale[id].tokenId) {
         require(msg.value >= itemsForSale[id].askingPrice, "Not enough funds sent");
         require(msg.sender != itemsForSale[id].seller);
 

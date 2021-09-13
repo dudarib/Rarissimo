@@ -1,6 +1,7 @@
 Moralis.initialize("zhtFOvVlO90ncDMdyBW4MXhPwULckUeLQ11BmmKA");
 Moralis.serverURL = 'https://2cvjfiew4kxo.usemoralis.com:2053/server'
-const TOKEN_CONTRACT_ADDRESS = "0x8A513406ddDAD4Dd05e5561D5dD3adEf14Fc62e5";
+const TOKEN_CONTRACT_ADDRESS = "0x65Dfc90f6De5Dd936f0FAcbCD72245b61a3A2d06";
+const MARKETPLACE_CONTRACT_ADDRESS = "0xf5BCa6B301Bb8187C2517E2e45502F89698Ade0F";
 
 
 init = async () => {
@@ -9,6 +10,7 @@ init = async () => {
     hideElement(createItemForm);
     window.web3 = await Moralis.Web3.enable();
     window.tokenContract = new web3.eth.Contract(tokenContractAbi, TOKEN_CONTRACT_ADDRESS);
+    window.marketplaceContract = new web3.eth.Contract(marketplaceContractAbi, MARKETPLACE_CONTRACT_ADDRESS);
     initUser();
 
 }
@@ -130,6 +132,21 @@ createItem = async () => {
     item.set('nftContractAddress', TOKEN_CONTRACT_ADDRESS);
     await item.save();
     console.log(item);
+
+    user = await Moralis.User.current();
+    const userAddress = user.get('ethAddress');
+
+    switch(createItemStatusField.value) {
+        case "0":
+            return;
+        case "1":
+            await ensureMarketplaceIsApproved(nftId, TOKEN_CONTRACT_ADDRESS);
+            await marketplaceContract.methods.addItemToMarket(nftId, TOKEN_CONTRACT_ADDRESS, createItemPriceField.value).send({from: userAddress });
+            break;
+        case "2":
+            alert("Not yet supported!");
+            return;
+    }
 }
 
 mintNft = async (metadataUrl) => {
@@ -181,6 +198,16 @@ getAndRenderItemData = (item, renderFunction) => {
         data.tokenAddress = item.tokenAddress;
         renderFunction(data);
     })
+}
+
+ensureMarketplaceIsApproved = async (tokenId, tokenAddress) => {
+    user = await Moralis.User.current();
+    const userAddress = user.get('ethAddress');
+    const contract = new web3.eth.Contract(tokenContractAbi, tokenAddress);
+    const approvedAddress = await contract.methods.getApproved(tokenId).call({from: userAddress});
+    if (approvedAddress != MARKETPLACE_CONTRACT_ADDRESS) {
+        await contract.methods.approve(MARKETPLACE_CONTRACT_ADDRESS, tokenId).send({from: userAddress });
+    }
 }
 
 hideElement = (element) => element.style.display = "none";
