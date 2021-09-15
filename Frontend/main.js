@@ -12,6 +12,7 @@ init = async () => {
     window.tokenContract = new web3.eth.Contract(tokenContractAbi, TOKEN_CONTRACT_ADDRESS);
     window.marketplaceContract = new web3.eth.Contract(marketplaceContractAbi, MARKETPLACE_CONTRACT_ADDRESS);
     initUser();
+    loadItems();
 
 }
 
@@ -173,6 +174,14 @@ loadUserItems = async () => {
     });
 }
 
+loadItems = async () => {
+    const itemss = await Moralis.Cloud.run("getItems");
+    console.log(itemss);
+    itemss.forEach(item => {
+        getAndRenderItemData(item, renderItem);
+    });
+}
+
 initTemplate = (id) => {
     const template = document.getElementById(id);
     template.id = "";
@@ -189,14 +198,35 @@ renderUserItem = (item) => {
     userItems.appendChild(userItem);
 }
 
+renderItem = (item) => {
+    const itemForSale = MarketplaceItemTemplate.cloneNode(true);
+    if (item.avatar){
+        itemForSale.getElementsByTagName("img")[0].src = item.sellerAvatar.url();
+        itemForSale.getElementsByTagName("img")[0].alt = item.sellerUsername;
+    }
+    itemForSale.getElementsByTagName("img")[1].src = item.image;
+    itemForSale.getElementsByTagName("img")[1].alt = item.name;
+    itemForSale.getElementsByTagName("h5")[0].innerText = item.name;
+    itemForSale.getElementsByTagName("p")[0].innerText = item.description;
+
+    itemForSale.getElementsByTagName("button")[0].innerText = `Buy for ${Web3.utils.fromWei(item.askingPrice, 'ether')} ETH `;
+    itemForSale.id = `item-${item.uid}`;
+
+    itemsForSale.appendChild(itemForSale);
+}
+
 getAndRenderItemData = (item, renderFunction) => {
     fetch(item.tokenUri)
     .then(response => response.json())
     .then(data => {
-        data.symbol = item.symbol;
-        data.tokenId = item.tokenId;
-        data.tokenAddress = item.tokenAddress;
-        renderFunction(data);
+        item.name = data.name;
+        item.description = data.description;
+        item.image = data.image;
+
+       // data.symbol = item.symbol;
+        //data.tokenId = item.tokenId;
+       // data.tokenAddress = item.tokenAddress;
+        renderFunction(item);
     })
 }
 
@@ -253,5 +283,11 @@ const openUserItemsButton = document.getElementById("btnMyItems");
 openUserItemsButton.onclick = openUserItems;
 
 const userItemTemplate = initTemplate("itemTemplate");
+const MarketplaceItemTemplate = initTemplate("MarketplaceItemTemplate");
+
+// items For Sale
+const itemsForSale = document.getElementById("itemsForSale");
+
+
 
 init();
