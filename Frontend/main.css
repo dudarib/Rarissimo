@@ -1,0 +1,51 @@
+.bg-dark {
+    background: rgb(18, 18, 18) !important;
+}
+
+
+.bg-rarissimo{
+    background: #20bea9!important;
+}
+.text-rarissimo{
+    color: #37b7df!important;
+}
+.border-rarissimo{
+    border-color: #3fb0f1!important;
+}
+.btn-rarissimo{
+    color: #f2f2f2!important;
+    background: #3bbdfa!important;
+    float: right!important;
+}
+.btn-rarissimo:hover{
+    color: #f2f2f2!important;
+    background: #37d8f5!important;
+}
+
+.btn-outline-rarissimo{
+    color: #2bbef8!important;
+    border: 1px solid #3789a1!important;
+}
+.btn-outline-rarissimo:hover{
+    color: #f2f2f2!important;
+    background: #3789a1!important;
+}
+
+.btn-primary{
+    background: #0C2E75 !important;
+    border-color: #0C2E75 !important;
+    color: #f2f2f2;
+}
+.btn-primary:hover{
+    background: #082151 !important;
+    border-color: #082151 !important;
+    color: #f2f2f2;
+}
+
+.card {
+    border-radius: .6rem !important;
+}
+
+.border-light {
+    border-color: rgb(61, 61, 61) !important;
+}
