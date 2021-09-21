@@ -6,33 +6,77 @@ const MARKETPLACE_CONTRACT_ADDRESS = "0xf5BCa6B301Bb8187C2517E2e45502F89698Ade0F
 
 init = async () => {
     hideElement(userItemsSection);
-    hideElement(userInfo);
-    hideElement(createItemForm);
     window.web3 = await Moralis.Web3.enable();
     window.tokenContract = new web3.eth.Contract(tokenContractAbi, TOKEN_CONTRACT_ADDRESS);
     window.marketplaceContract = new web3.eth.Contract(marketplaceContractAbi, MARKETPLACE_CONTRACT_ADDRESS);
     initUser();
     loadItems();
 
+    //check new query added to DB
+    const soldItemsQuery = new Moralis.Query('SoldItems');
+    const soldItemsSubscription = await soldItemsQuery.subscribe();
+    soldItemsSubscription.on("create", onItemSold);
+
+    const itemsAddedQuery = new Moralis.Query('ItemsForSale');
+    const itemsAddedSubscription = await itemsAddedQuery.subscribe();
+    itemsAddedSubscription.on("create", onItemAdded);
+}
+
+onItemSold = async (item) => {
+    const listing = document.getElementById(`item-${item.attributes.uid}`);
+    if (listing){
+        listing.parentNode.removeChild(listing);
+    }
+    
+    user = await Moralis.User.current();
+    if (user){
+        const params = {uid: `${item.attributes.uid}`};
+        const soldItem = await Moralis.Cloud.run('getItem', params);
+        if (soldItem){
+            if (user.get('accounts').includes(item.attributes.buyer)){
+                getAndRenderItemData(soldItem, renderUserItem);
+            }
+
+            const userItemListing = document.getElementById(`user-item-${item.tokenObjectId}`);
+            if (userItemListing) userItemListing.parentNode.removeChild(userItemListing);
+          
+        }
+   
+    }
+}
+
+onItemAdded = async (item) => {
+    const params = {uid: `${item.attributes.uid}`};
+    const addedItem = await Moralis.Cloud.run('getItem', params);
+    if (addedItem){
+        user = await Moralis.User.current();
+        if (user){
+            if (user.get('accounts').includes(addedItem.ownerOf)){
+                const userItemListing = document.getElementById(`user-item-${item.tokenObjectId}`);
+                if (userItemListing) userItemListing.parentNode.removeChild(userItemListing);
+
+                getAndRenderItemData(addedItem, renderUserItem);
+                return;
+            }
+        }
+        getAndRenderItemData(addedItem, renderItem);
+    }
+
 }
 
 /**Takes care of displaying the correct button */
 initUser = async () => {
-    if(await Moralis.User.current()){
+    if (await Moralis.User.current()){
         hideElement(userConnectButton);
         showElement(userProfileButton);
         showElement(openCreateItemButton);
         showElement(openUserItemsButton);
         loadUserItems();
-
-
-    }else {
+    }else{
         showElement(userConnectButton);
         hideElement(userProfileButton);
         hideElement(openCreateItemButton);
         hideElement(openUserItemsButton);
-
-
     }
 }
 
@@ -71,7 +115,7 @@ openUserInfo = async () => {
             hideElement(userAvatarImg);
         }
 
-        showElement(userInfo);
+        $('#userInfo').modal('show');
     }else{
         login();
     }
@@ -82,21 +126,21 @@ saveUserInfo = async () => {
     user.set('username', userUsernameField.value);
 
     if (userAvatarFile.files.length > 0) {
-        const avatar = new Moralis.File("avatar.jpg", userAvatarFile.files[0]);
+        const avatar = new Moralis.File("avatar1.jpg", userAvatarFile.files[0]);
         user.set('avatar', avatar);
-      }
+    }
 
-      await user.save();
-      alert("user info saved sucessfull");
-      openUserInfo();
+    await user.save();
+    alert("User info saved successfully!");
+    openUserInfo();
 }
 
 createItem = async () => {
-    if(createItemFile.files.length == 0) {
-        alert("Please select a file");
+    if (createItemFile.files.length == 0){
+        alert("Please select a file!");
         return;
-    } else if(createItemNameField.value.length == 0){
-        alert("Please give the item a name");
+    } else if (createItemNameField.value.length == 0){
+        alert("Please give the item a name!");
         return;
     }
 
@@ -104,22 +148,22 @@ createItem = async () => {
     await nftFile.saveIPFS();
 
     const nftFilePath = nftFile.ipfs();
-    const nftFileHash = nftFile.hash();
 
     const metadata = {
         name: createItemNameField.value,
         description: createItemDescriptionField.value,
-        image: nftFilePath
+        image: nftFilePath,
     };
 
     const nftFileMetadataFile = new Moralis.File("metadata.json", {base64 : btoa(JSON.stringify(metadata))});
     await nftFileMetadataFile.saveIPFS();
 
     const nftFileMetadataFilePath = nftFileMetadataFile.ipfs();
-    const nftFileMetadataFileHash = nftFileMetadataFile.hash();
 
     const nftId = await mintNft(nftFileMetadataFilePath);
 
+    /**TO show how we can insert in DB
+     * 
     const Item = Moralis.Object.extend("Item");
     // Create a new instance of that class.
     const item = new Item();
@@ -133,11 +177,12 @@ createItem = async () => {
     item.set('nftContractAddress', TOKEN_CONTRACT_ADDRESS);
     await item.save();
     console.log(item);
+     */
 
     user = await Moralis.User.current();
     const userAddress = user.get('ethAddress');
 
-    switch(createItemStatusField.value) {
+    switch(createItemStatusField.value){
         case "0":
             return;
         case "1":
@@ -158,9 +203,8 @@ mintNft = async (metadataUrl) => {
 
 openUserItems = async () => {
     user = await Moralis.User.current();
-    if (user){
-       
-            showElement(userItemsSection);
+    if (user){    
+        $('#userItems').modal('show');
     }else{
         login();
     }
@@ -170,14 +214,24 @@ loadUserItems = async () => {
     const ownedItems = await Moralis.Cloud.run("getUserItems");
     //console.log(ownedItems);
     ownedItems.forEach(item => {
+        const userItemListing = document.getElementById(`user-item-${item.tokenObjectId}`);
+        if (userItemListing) return;
         getAndRenderItemData(item, renderUserItem);
     });
 }
 
 loadItems = async () => {
-    const itemss = await Moralis.Cloud.run("getItems");
-    console.log(itemss);
-    itemss.forEach(item => {
+    const items = await Moralis.Cloud.run("getItems");
+    user = await Moralis.User.current();
+    items.forEach(item => {
+        if (user){
+            if (user.attributes.accounts.includes(item.ownerOf)){
+                const userItemListing = document.getElementById(`user-item-${item.tokenObjectId}`);
+                if (userItemListing) userItemListing.parentNode.removeChild(userItemListing);
+                getAndRenderItemData(item, renderUserItem);
+                return;
+            }
+        }
         getAndRenderItemData(item, renderItem);
     });
 }
@@ -189,27 +243,48 @@ initTemplate = (id) => {
     return template;
 }
 
-renderUserItem = (item) => {
-    const userItem = userItemTemplate.cloneNode(true);  // quando usamos o true passamos toda a estrutura do itemTemplate e nao só o id
+
+renderUserItem = async (item) => {
+    const userItemListing = document.getElementById(`user-item-${item.tokenObjectId}`);
+    if (userItemListing) return;
+
+    const userItem = userItemTemplate.cloneNode(true);
     userItem.getElementsByTagName("img")[0].src = item.image;
     userItem.getElementsByTagName("img")[0].alt = item.name;
     userItem.getElementsByTagName("h5")[0].innerText = item.name;
     userItem.getElementsByTagName("p")[0].innerText = item.description;
+
+    userItem.getElementsByTagName("input")[0].value = item.askingPrice ?? 1;
+    userItem.getElementsByTagName("input")[0].disabled = item.askingPrice > 0;
+    userItem.getElementsByTagName("button")[0].disabled = item.askingPrice > 0;
+    userItem.getElementsByTagName("button")[0].onclick = async () => {
+        user = await Moralis.User.current();
+        if (!user){
+            login();
+            return;
+        }
+        await ensureMarketplaceIsApproved(item.tokenId, item.tokenAddress);
+        await marketplaceContract.methods.addItemToMarket(item.tokenId, item.tokenAddress, userItem.getElementsByTagName("input")[0].value).send({from: user.get('ethAddress') });
+    };
+
+    userItem.id = `user-item-${item.tokenObjectId}`
     userItems.appendChild(userItem);
 }
 
 renderItem = (item) => {
-    const itemForSale = MarketplaceItemTemplate.cloneNode(true);
-    if (item.avatar){
+    const itemForSale = marketplaceItemTemplate.cloneNode(true);
+    if (item.sellerAvatar){
         itemForSale.getElementsByTagName("img")[0].src = item.sellerAvatar.url();
         itemForSale.getElementsByTagName("img")[0].alt = item.sellerUsername;
     }
+
     itemForSale.getElementsByTagName("img")[1].src = item.image;
     itemForSale.getElementsByTagName("img")[1].alt = item.name;
     itemForSale.getElementsByTagName("h5")[0].innerText = item.name;
     itemForSale.getElementsByTagName("p")[0].innerText = item.description;
 
-    itemForSale.getElementsByTagName("button")[0].innerText = `Buy for ${Web3.utils.fromWei(item.askingPrice, 'ether')} ETH `;
+    itemForSale.getElementsByTagName("button")[0].innerText = `Buy for ${item.askingPrice}`;
+    itemForSale.getElementsByTagName("button")[0].onclick = () => buyItem(item);
     itemForSale.id = `item-${item.uid}`;
 
     itemsForSale.appendChild(itemForSale);
@@ -222,10 +297,6 @@ getAndRenderItemData = (item, renderFunction) => {
         item.name = data.name;
         item.description = data.description;
         item.image = data.image;
-
-       // data.symbol = item.symbol;
-        //data.tokenId = item.tokenId;
-       // data.tokenAddress = item.tokenAddress;
         renderFunction(item);
     })
 }
@@ -235,9 +306,18 @@ ensureMarketplaceIsApproved = async (tokenId, tokenAddress) => {
     const userAddress = user.get('ethAddress');
     const contract = new web3.eth.Contract(tokenContractAbi, tokenAddress);
     const approvedAddress = await contract.methods.getApproved(tokenId).call({from: userAddress});
-    if (approvedAddress != MARKETPLACE_CONTRACT_ADDRESS) {
-        await contract.methods.approve(MARKETPLACE_CONTRACT_ADDRESS, tokenId).send({from: userAddress });
+    if (approvedAddress != MARKETPLACE_CONTRACT_ADDRESS){
+        await contract.methods.approve(MARKETPLACE_CONTRACT_ADDRESS,tokenId).send({from: userAddress});
     }
+}
+
+buyItem = async (item) => {
+    user = await Moralis.User.current();
+    if (!user){
+        login();
+        return;
+    } 
+    await marketplaceContract.methods.buyItem(item.uid).send({from: user.get('ethAddress'), value: item.askingPrice});
 }
 
 hideElement = (element) => element.style.display = "none";
@@ -251,9 +331,9 @@ const userProfileButton = document.getElementById("btnUserInfo");
 userProfileButton.onclick = openUserInfo;
 
 const openCreateItemButton = document.getElementById("btnOpenCreateItem");
-openCreateItemButton.onclick = () => showElement(createItemForm);
+openCreateItemButton.onclick = () => $('#createItem').modal('show');
 
-// User Profile
+//  User profile
 const userInfo = document.getElementById("userInfo");
 const userUsernameField = document.getElementById("txtUsername");
 const userEmailField = document.getElementById("txtEmail");
@@ -282,12 +362,12 @@ document.getElementById("btnCloseUserItems").onclick = () => hideElement(userIte
 const openUserItemsButton = document.getElementById("btnMyItems");
 openUserItemsButton.onclick = openUserItems;
 
+
 const userItemTemplate = initTemplate("itemTemplate");
-const MarketplaceItemTemplate = initTemplate("MarketplaceItemTemplate");
+const marketplaceItemTemplate = initTemplate("marketplaceItemTemplate");
 
-// items For Sale
+// Items for sale
 const itemsForSale = document.getElementById("itemsForSale");
-
 
 
 init();
