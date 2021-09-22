@@ -283,7 +283,7 @@ renderItem = (item) => {
     itemForSale.getElementsByTagName("h5")[0].innerText = item.name;
     itemForSale.getElementsByTagName("p")[0].innerText = item.description;
 
-    itemForSale.getElementsByTagName("button")[0].innerText = `Buy for ${item.askingPrice}`;
+    itemForSale.getElementsByTagName("button")[0].innerText = `Buy for ${item.askingPrice} ETH`;
     itemForSale.getElementsByTagName("button")[0].onclick = () => buyItem(item);
     itemForSale.id = `item-${item.uid}`;
 
@@ -317,7 +317,7 @@ buyItem = async (item) => {
         login();
         return;
     } 
-    await marketplaceContract.methods.buyItem(item.uid).send({from: user.get('ethAddress'), value: item.askingPrice});
+    await marketplaceContract.methods.buyItem(item.uid).send({from: user.get('ethAddress'), value: web3.utils.toWei(item.askingPrice , 'ether') });
 }
 
 hideElement = (element) => element.style.display = "none";
